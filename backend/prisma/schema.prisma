@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(uuid())
+  email          String          @unique
+  name           String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  projects       Project[]
+  socialAccounts SocialAccount[]
+}
+
+model SocialAccount {
+  id           String    @id @default(uuid())
+  userId       String
+  platform     Platform
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform])
+}
+
+model Project {
+  id                String       @id @default(uuid())
+  title             String
+  userId            String
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  renderedVideoUrl  String?
+  renderStatus      String       @default("PENDING")
+  renderCompletedAt DateTime?
+  userContext       Json?
+
+  analysis          AiAnalysis?
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  renderJobs        RenderJob[]
+  socialPosts       SocialPost[]
+  videos            Video[]
+
+  @@index([userId])
+}
+
+model Video {
+  id        String    @id @default(uuid())
+  projectId String
+  type      VideoType
+  url       String
+  duration  Float?
+  width     Int?
+  height    Int?
+  createdAt DateTime  @default(now())
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AiAnalysis {
+  id            String   @id @default(uuid())
+  projectId     String   @unique
+  themes        String[]
+  mood          String?
+  aesthetics    String?
+  templateId    String?
+  rawVisionData Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model RenderJob {
+  id          String    @id @default(uuid())
+  projectId   String
+  status      JobStatus @default(PENDING)
+  progress    Int       @default(0)
+  errorLogs   String?
+  retryCount  Int       @default(0)
+  bullMqJobId String?   @unique
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+model SocialPost {
+  id           String     @id @default(uuid())
+  projectId    String
+  platform     Platform
+  status       PostStatus @default(DRAFT)
+  caption      String?
+  scheduledFor DateTime?
+  externalId   String?
+  errorLogs    String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([scheduledFor, status])
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+}
+
+enum VideoType {
+  RAW
+  PROCESSED
+  B_ROLL
+}
+
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}

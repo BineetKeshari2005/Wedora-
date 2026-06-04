@@ -1,0 +1,8 @@
+{
+  "zoom": {"type":"smooth","durationMs":2000,"easing":"easeOutQuad"},
+  "transition": {"type":"crossfade","durationMs":500},
+  "overlay": {"font":"Roboto,400,24","color":"#FFFFFF","bgOpacity":0.3,"position":"bottom-left","marginPx":20},
+  "textAnimation": "fadeIn",
+  "brollCategories": ["ceremony","reception"],
+  "pacing": "medium"
+}

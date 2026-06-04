@@ -1,0 +1,8 @@
+{
+  "zoom": {"type":"none","durationMs":0,"easing":"linear"},
+  "transition": {"type":"crossfade","durationMs":300},
+  "overlay": {"font":"Helvetica,300,20","color":"#FAFAFA","bgOpacity":0.1,"position":"bottom-right","marginPx":15},
+  "textAnimation": "none",
+  "brollCategories": ["details","getting-ready"],
+  "pacing": "fast"
+}

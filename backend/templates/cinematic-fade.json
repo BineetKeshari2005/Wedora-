@@ -1,0 +1,14 @@
+{
+  "id": "cinematic-fade",
+  "name": "Cinematic Fade",
+  "transition": "fade",
+  "zoom": "slow",
+  "overlayStyle": "luxury",
+  "textAnimation": "fade-in",
+  "colorTone": "warm",
+  "effects": [
+    "slow-zoom",
+    "crossfade",
+    "soft-glow"
+  ]
+}

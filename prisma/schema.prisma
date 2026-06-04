@@ -1,0 +1,79 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model SocialAccount {
+  id            String   @id @default(uuid())
+  userId        String
+  platform      Platform
+  providerUserId String
+  accessToken   String   // encrypted
+  refreshToken  String   // encrypted
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  @@unique([userId, platform])
+}
+
+model SocialPost {
+  id            String   @id @default(uuid())
+  projectId     String
+  platform      Platform
+  providerPostId String
+  status        PostStatus @default(PENDING)
+  scheduledFor  DateTime?
+  postedAt      DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+}
+
+enum PostStatus {
+  PENDING
+  IN_PROGRESS
+  SUCCESS
+  FAILED
+}
+
+// Cinematic template definition – stored as JSON for flexibility
+model CinematicTemplate {
+  id          String   @id @default(uuid())
+  name        String   // e.g. "luxury-wedding"
+  version     String   // semantic version, e.g. "1.0"
+  definition  Json     // full JSON template (zoom, transition, overlay, etc.)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Video {
+  id          String   @id @default(uuid())
+  projectId   String
+  type        String   // RAW, PROCESSED
+  url         String
+  duration    Float?
+  width       Int?
+  height      Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model RenderJob {
+  id           String   @id @default(uuid())
+  projectId    String
+  templateId   String?  // Optional FK to CinematicTemplate.id
+  status       String   @default("PENDING")
+  progress     Int      @default(0)
+  bullMqJobId  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

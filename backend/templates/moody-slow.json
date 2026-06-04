@@ -1,0 +1,13 @@
+{
+  "id": "moody-slow",
+  "name": "Moody Slow",
+  "transition": "crossfade",
+  "zoom": "slow",
+  "overlayStyle": "minimal",
+  "textAnimation": "fade-in",
+  "colorTone": "moody",
+  "effects": [
+    "slow-zoom",
+    "crossfade"
+  ]
+}

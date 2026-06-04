@@ -1,0 +1,8 @@
+{
+  "zoom": {"type":"smooth","durationMs":1500,"easing":"easeOutCubic"},
+  "transition": {"type":"crossfade","durationMs":400},
+  "overlay": {"font":"Montserrat,500,28","color":"#000000","bgOpacity":0.6,"position":"bottom-left","marginPx":25},
+  "textAnimation": "zoomIn",
+  "brollCategories": ["scenic","venue"],
+  "pacing": "medium"
+}

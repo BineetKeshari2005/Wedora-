@@ -1,0 +1,8 @@
+{
+  "zoom": {"type":"smooth","durationMs":3000,"easing":"easeInQuad"},
+  "transition": {"type":"crossfade","durationMs":800},
+  "overlay": {"font":"Playfair Display,700,32","color":"#FFD700","bgOpacity":0.5,"position":"top-left","marginPx":30},
+  "textAnimation": "slideIn",
+  "brollCategories": ["ceremony","grand-entrance"],
+  "pacing": "slow"
+}

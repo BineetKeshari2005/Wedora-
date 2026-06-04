@@ -1,0 +1,13 @@
+{
+  "id": "energetic-cut",
+  "name": "Energetic Cut",
+  "transition": "none",
+  "zoom": "fast",
+  "overlayStyle": "bold",
+  "textAnimation": "pop",
+  "colorTone": "vibrant",
+  "effects": [
+    "fast-zoom",
+    "glitch"
+  ]
+}
