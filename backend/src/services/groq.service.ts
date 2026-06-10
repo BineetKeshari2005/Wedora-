@@ -14,11 +14,13 @@ export interface CreativeOutput {
   hooks: string[];               // Opening hook lines
   captions: string[];            // Full caption for the post
   hashtags: string[];            // Platform‑ready hashtags (include #)
-  templateId: string;            // Selected FFmpeg template (cinematic-fade, …)
   cinematicDirections: string[]; // High‑level directions for further processing
   editingStyle: string;
   pacingSuggestions: string;
   reelHook: string;
+  title?: string;
+  description?: string;
+  tags?: string[];
 }
 
 export class GroqService {
@@ -45,87 +47,69 @@ export class GroqService {
 private buildPrompt(input: CreativeInput): string {
   const { metadata, userContext, platform } = input;
 
+  let platformInstructions = '';
+  if (platform === 'YOUTUBE') {
+    platformInstructions = `
+Additional Fields for YouTube:
+- "title": A catchy, SEO-optimized title (max 100 chars).
+- "description": A longer description (up to 5,000 chars) that includes keywords.
+- "tags": Array of comma-separated tag strings (e.g., ["scenery", "event"]).
+`;
+  }
+
   return `You are a luxury wedding marketing creative director for an AI wedding planning company.
 
-Your goal is NOT to create sentimental wedding captions.
+Your goal is to generate promotional wedding marketing content that helps attract potential clients for wedding planning services, but you MUST anchor your marketing copy in the actual visual observations provided below. 
+Do NOT generate generic, disconnected marketing phrases. Every piece of content should feel like premium wedding marketing, but it must be tailored specifically to the unique venue, decor, lighting, and colors detected in THIS video.
 
-Your goal is to generate promotional wedding marketing content that helps attract potential clients for wedding planning services.
-
-Project Intelligence:
-
-Vision Analysis:
+=== VISION ANALYSIS ===
 ${JSON.stringify(metadata, null, 2)}
 
-User Context:
+=== USER INTENT ===
 ${userContext}
 
-Target Platform:
+=== TARGET PLATFORM ===
 ${platform}
 
-Generate a single JSON object (no markdown, no explanation) with this exact shape:
-
+Generate a JSON object:
 {
-  "overlayText": ["<line>", "<line>"],
-  "hooks": ["<hook>"],
-  "captions": ["<caption>"],
-  "hashtags": ["#tag1", "#tag2"],
-  "templateId": "<chosen-template>",
-  "cinematicDirections": ["<direction list>"],
-  "editingStyle": "<style description>",
-  "pacingSuggestions": "<pacing description>",
-  "reelHook": "<reel hook>"
+  "overlayText": [],
+  "hooks": [],
+  "captions": [],
+  "hashtags": [],
+  "cinematicDirections": [],
+  "editingStyle": "",
+  "pacingSuggestions": "",
+  "reelHook": ""${platform === 'YOUTUBE' ? ',\n  "title": "<title>",\n  "description": "<description>",\n  "tags": ["<tag1>", "<tag2>"]' : ''}
 }
+${platformInstructions}
 
-OverlayText Rules:
-- Generate exactly 4 overlayText entries.
-- Each overlay must be 2-5 words only.
-- Maximum 25 characters.
-- Must sound like premium advertising headlines.
-- Focus on wedding venues, mandaps, decor, destinations, planning and luxury experiences.
-- Avoid emotional storytelling.
+Rules:
+- overlayText: 4 entries, 2-5 words each, max 25 chars. Must sound like premium advertising headlines BUT must incorporate or complement the specific detected visuals. GOOD examples(use this as an example dont copy this exact phrases): "Your Dream Mandap", "Destination Dreams", "Luxury Awaits You", "Elegant Outdoor Ceremonies".
+- hooks: 1 entry. Must reference a specific visual detail from the video to catch the viewer's attention.
+- captions: 1 entry. Must read like high-end wedding planning marketing, incorporating the detected venue, decor, or activities as proof of your service's quality.
+- hashtags: 5-8 entries. Blend general wedding marketing tags (e.g., #WeddingPlanner, #LuxuryWedding) with at least 3 tags referencing detected elements (e.g., #OutdoorCeremony, #RedFloralDecor).
+- cinematicDirections: 3-5 entries. Must reference detected camera movements and lighting.
+- editingStyle: 1 sentence grounded in detected colors and lighting.
+- pacingSuggestions: 1 sentence based on detected camera movements.
+- reelHook: 1 sentence referencing a unique visual detail to keep them watching.
 
-NEVER generate:
-- Love Story
-- Eternal Vows
-- Forever Begins
-- Happily Ever After
-- Soulmates
-- Royal Wedding
-- Our Journey
-
-GOOD examples:
-- Your Dream Wedding
-- Luxury Mandaps Await
-- Crafted For You
-- Celebrate In Grandeur
-- Dream Wedding Venues
-- Destination Dreams Delivered
-- Elegant Wedding Experiences
-- Weddings Made Effortless
-- Designed Around You
-- Plan Beyond Expectations
-
-Additional Constraints:
-- Keep other strings under 100 characters.
-- Follow platform-specific best practices.
-- Choose templateId strictly from:
-  [cinematic-fade, moody-slow, energetic-cut, default-template]
-- cinematicDirections must include editing keywords such as zoom, pan, blur, color tone, transition.
-- Return ONLY valid JSON.
+Do NOT repeat the exact same phrases across different videos. Vary your vocabulary while maintaining a premium, luxurious tone.
+If visual information is limited, describe what IS visible to sell the moment, rather than inventing details.
+Return ONLY valid JSON.
 `;
 }
 
   private getDefaultOutput(): CreativeOutput {
     return {
-      overlayText: ['Your Dream Wedding', "Designed Around You"],
-      hooks: ["Wait for it..."],
-      captions: ["Celebrating love and unforgettable memories."],
-      hashtags: ["#wedding", "#love", "#cinematic"],
-      templateId: 'default-template',
+      overlayText: ['Your Dream Wedding', "Designed Around You", "Crafted To Perfection", "Unforgettable Details"],
+      hooks: ["Wait until you see this venue..."],
+      captions: ["Every detail of your big day meticulously planned to match your vision. We bring dream weddings to life."],
+      hashtags: ["#LuxuryWedding", "#WeddingPlanner", "#DreamWedding"],
       cinematicDirections: [],
-      editingStyle: "Cinematic Default",
-      pacingSuggestions: "Slow and emotional",
-      reelHook: "Watch this magical moment"
+      editingStyle: "Premium and cinematic",
+      pacingSuggestions: "Elegant and smooth",
+      reelHook: "Experience the magic of this moment"
     };
   }
 
@@ -162,11 +146,13 @@ Additional Constraints:
           hooks: Array.isArray(parsed.hooks) ? parsed.hooks : this.getDefaultOutput().hooks,
           captions: Array.isArray(parsed.captions) ? parsed.captions : this.getDefaultOutput().captions,
           hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : this.getDefaultOutput().hashtags,
-          templateId: typeof parsed.templateId === 'string' ? parsed.templateId : this.getDefaultOutput().templateId,
           cinematicDirections: Array.isArray(parsed.cinematicDirections) ? parsed.cinematicDirections : this.getDefaultOutput().cinematicDirections,
           editingStyle: typeof parsed.editingStyle === 'string' ? parsed.editingStyle : this.getDefaultOutput().editingStyle,
           pacingSuggestions: typeof parsed.pacingSuggestions === 'string' ? parsed.pacingSuggestions : this.getDefaultOutput().pacingSuggestions,
           reelHook: typeof parsed.reelHook === 'string' ? parsed.reelHook : this.getDefaultOutput().reelHook,
+          title: typeof parsed.title === 'string' ? parsed.title : undefined,
+          description: typeof parsed.description === 'string' ? parsed.description : undefined,
+          tags: Array.isArray(parsed.tags) ? parsed.tags : undefined,
         };
 
       } catch (err: any) {

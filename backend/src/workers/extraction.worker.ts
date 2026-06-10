@@ -7,6 +7,7 @@ import { GroqService } from '../services/groq.service';
 import { prisma } from '../lib/prisma';
 import { logger } from '../utils/logger';
 import { ContextBuilder } from '../utils/contextBuilder';
+import { TemplateScorer } from '../utils/templateScorer';
 
 export const startExtractionWorker = () => {
   return createWorker('video-extraction', async (job: Job) => {
@@ -18,7 +19,7 @@ export const startExtractionWorker = () => {
     const framesDir = await ExtractService.extractFrames(
       projectId,
       videoUrl,
-      3, // 1 frame every 3 seconds
+      1, // 1 frame every 1 second for dense coverage
       (percent) => job.updateProgress(Math.floor(percent * 0.3))
     );
     logger.info(`[VideoExtraction] Frames extracted to: ${framesDir}`);
@@ -27,7 +28,11 @@ export const startExtractionWorker = () => {
     await prisma.project.update({ where: { id: projectId }, data: { renderStatus: 'ANALYZING' } });
     logger.info(`[VideoExtraction] Analyzing frames for project: ${projectId}`);
     const analysisResult = await VisionService.analyzeFrames(framesDir);
-    logger.info(`[VideoExtraction] Analysis complete. Themes: ${analysisResult.themes?.join(', ') || 'none'}`);
+    logger.info(`[VideoExtraction] Analysis complete. Summary: ${analysisResult.sceneSummary || 'none'}`);
+
+    // 3. Score templates using the new dynamic scorer
+    const scoredTemplateId = TemplateScorer.scoreTemplates(analysisResult);
+    logger.info(`[VideoExtraction] Best matching template: ${scoredTemplateId}`);
 
     // Fetch user context from the project
     const project = await prisma.project.findUnique({ where: { id: projectId } });
@@ -49,25 +54,32 @@ export const startExtractionWorker = () => {
     await prisma.aiAnalysis.upsert({
       where: { projectId },
       update: {
-        themes: analysisResult.themes ?? [],
-        mood: analysisResult.mood,
-        aesthetics: analysisResult.aesthetics,
-        templateId: groqResult.templateId || analysisResult.recommended_template,
+        themes: analysisResult.visibleElements || [], // Map to existing field for schema compat
+        mood: analysisResult.lightingCharacteristics?.[0] || 'neutral',
+        aesthetics: analysisResult.dominantColors?.[0] || 'standard',
+        templateId: scoredTemplateId,
         rawVisionData: { vision: analysisResult, groq: groqResult } as any,
       },
       create: {
         projectId,
-        themes: analysisResult.themes ?? [],
-        mood: analysisResult.mood,
-        aesthetics: analysisResult.aesthetics,
-        templateId: groqResult.templateId || analysisResult.recommended_template,
+        themes: analysisResult.visibleElements || [],
+        mood: analysisResult.lightingCharacteristics?.[0] || 'neutral',
+        aesthetics: analysisResult.dominantColors?.[0] || 'standard',
+        templateId: scoredTemplateId,
         rawVisionData: { vision: analysisResult, groq: groqResult } as any,
       },
     });
 
+    await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        generatedCaption: groqResult.captions?.[0] || null,
+        generatedHashtags: groqResult.hashtags || [],
+      }
+    });
+
     // 5. Dispatch render job using the chosen template and passing groqData
-    const templateId = groqResult.templateId || analysisResult.recommended_template || 'default-template';
-    await QueueService.addRenderJob(projectId, templateId, groqResult);
+    await QueueService.addRenderJob(projectId, scoredTemplateId, groqResult);
 
     return { framesDir, analysisResult, groqResult };
   }, 2);

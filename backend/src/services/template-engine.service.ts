@@ -3,6 +3,9 @@ import path from 'path';
 import ffmpeg from '../ffmpeg/ffmpeg.config';
 import { buildFilterGraph } from '../ffmpeg/builders/filterGraphBuilder';
 import { logger } from '../utils/logger';
+import { EditPlan } from '../schemas/editPlan';
+import { EditPlanExecutor } from '../ffmpeg/executor/editPlanExecutor';
+import { FFprobeService } from './ffprobe.service';
 
 export interface RenderContext {
   templateId: string;
@@ -69,5 +72,15 @@ export class TemplateEngine {
           resolve();
         });
     });
+  }
+
+  static async renderEditPlan(
+    inputVideo: string,
+    outputPath: string,
+    onProgress: (pct: number) => void,
+    editPlan: EditPlan
+  ): Promise<void> {
+    const metadata = await FFprobeService.getMetadata(inputVideo);
+    return EditPlanExecutor.execute(inputVideo, outputPath, onProgress, editPlan, metadata);
   }
 }

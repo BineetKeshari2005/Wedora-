@@ -10,7 +10,7 @@ export class ExtractService {
   static async extractFrames(
     projectId: string, 
     videoUrl: string, 
-    intervalSec: number = 3,
+    intervalSec: number = 1,
     onProgress?: (percent: number) => void
   ): Promise<string> {
     

@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { selectRepresentativeFrames } from '../utils/frameSelector';
 
 export class VisionService {
   /**
@@ -16,21 +17,11 @@ export class VisionService {
     console.log('[VisionService] Analyzing frames at', framesDir, 'using OpenRouter API');
     
     try {
-      const files = fs.readdirSync(framesDir).filter((f) => f.match(/\.(jpe?g|png)$/i));
-      if (files.length === 0) {
+      const sampledFiles = selectRepresentativeFrames(framesDir, 8);
+      
+      if (sampledFiles.length === 0) {
         throw new Error(`No image files found in ${framesDir}`);
       }
-
-      // Sort files numerically to maintain sequence
-      files.sort((a, b) => {
-        const numA = parseInt(a.replace(/[^\d]/g, ''), 10) || 0;
-        const numB = parseInt(b.replace(/[^\d]/g, ''), 10) || 0;
-        return numA - numB;
-      });
-
-      // Sample a maximum of 10 evenly spaced frames to avoid payload limits
-      const sampleRate = Math.max(1, Math.floor(files.length / 10));
-      const sampledFiles = files.filter((_, idx) => idx % sampleRate === 0).slice(0, 2);
 
       const contentParts: any[] = [
         {
@@ -38,20 +29,30 @@ export class VisionService {
           text: `Analyze these sequential frames from a video.
 Return ONLY a JSON object (without markdown wrappers or \`\`\`json blocks) with this exact schema:
 {
-  "themes": [],
-  "weddingStyle": "",
-  "luxuryLevel": "",
-  "decorStyle": "",
-  "recommended_template": "default-template"
+  "sceneSummary": "<1-2 sentence factual description of what is visible>",
+  "visibleElements": ["<object1>", "<object2>", ...],
+  "decorElements": ["<decor1>", "<decor2>", ...],
+  "venueFeatures": ["<feature1>", "<feature2>", ...],
+  "dominantColors": ["<color1>", "<color2>", ...],
+  "lightingCharacteristics": ["<lighting1>", ...],
+  "cameraMovements": ["<movement1>", ...],
+  "peopleAndActivities": ["<activity1>", ...],
+  "uniqueVisualDetails": ["<detail1>", ...]
 }
 
-Constraint: choose recommended_template ONLY from this list: [cinematic-fade, moody-slow, energetic-cut, default-template]`
+Rules:
+- Report ONLY what is directly visible in the frames.
+- Do NOT infer emotions or marketing qualities — stick to factual observations.
+- Be specific: say "red and gold flower garlands" not just "decorations".
+- Vary your descriptions — don't repeat the same words across different videos.
+- Maximum 5 items per array.
+- Keep the sceneSummary under 40 words.
+- Return valid JSON only, no markdown.`
         }
       ];
 
-      sampledFiles.forEach(file => {
-        const filePath = path.join(framesDir, file);
-        const mimeType = file.match(/\.png$/i) ? 'image/png' : 'image/jpeg';
+      sampledFiles.forEach(filePath => {
+        const mimeType = filePath.match(/\.png$/i) ? 'image/png' : 'image/jpeg';
         const base64Data = Buffer.from(fs.readFileSync(filePath)).toString("base64");
         contentParts.push({
           type: "image_url",
@@ -70,9 +71,9 @@ Constraint: choose recommended_template ONLY from this list: [cinematic-fade, mo
           "X-Title": "Wedora Vision Analysis"
         },
         body: JSON.stringify({
-          model: 'qwen/qwen2.5-vl-72b-instruct', // You can switch this to another vision-capable model on OpenRouter
-          max_tokens: 300,
-          temperature: 0.1,
+          model: 'qwen/qwen2.5-vl-72b-instruct',
+          max_tokens: 500,
+          temperature: 0.3,
           messages: [
             {
               role: "user",
@@ -102,10 +103,15 @@ Constraint: choose recommended_template ONLY from this list: [cinematic-fade, mo
         console.log('[VisionService] Parsed analysis:', parsed);
         
         return {
-          themes: Array.isArray(parsed.themes) ? parsed.themes : [],
-          mood: parsed.mood || 'neutral',
-          aesthetics: parsed.aesthetics || 'standard',
-          recommended_template: parsed.recommended_template || 'default-template',
+          sceneSummary: parsed.sceneSummary || '',
+          visibleElements: Array.isArray(parsed.visibleElements) ? parsed.visibleElements : [],
+          decorElements: Array.isArray(parsed.decorElements) ? parsed.decorElements : [],
+          venueFeatures: Array.isArray(parsed.venueFeatures) ? parsed.venueFeatures : [],
+          dominantColors: Array.isArray(parsed.dominantColors) ? parsed.dominantColors : [],
+          lightingCharacteristics: Array.isArray(parsed.lightingCharacteristics) ? parsed.lightingCharacteristics : [],
+          cameraMovements: Array.isArray(parsed.cameraMovements) ? parsed.cameraMovements : [],
+          peopleAndActivities: Array.isArray(parsed.peopleAndActivities) ? parsed.peopleAndActivities : [],
+          uniqueVisualDetails: Array.isArray(parsed.uniqueVisualDetails) ? parsed.uniqueVisualDetails : [],
           rawVisionData: parsed
         };
       }
@@ -118,12 +124,16 @@ Constraint: choose recommended_template ONLY from this list: [cinematic-fade, mo
 
   private static getMockAnalysis() {
     return {
-      
-      "themes": [],
-      "weddingStyle": "",
-      "luxuryLevel": "",
-      "decorStyle": "",
-      "recommended_template": "default-template"
+      sceneSummary: "No visual data available",
+      visibleElements: [],
+      decorElements: [],
+      venueFeatures: [],
+      dominantColors: [],
+      lightingCharacteristics: [],
+      cameraMovements: [],
+      peopleAndActivities: [],
+      uniqueVisualDetails: [],
+      rawVisionData: {}
     };
   }
 }

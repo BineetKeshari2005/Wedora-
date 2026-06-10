@@ -57,6 +57,13 @@ export const renderQueue = new Queue('render-pipeline', { connection });
 // 4. Social Upload Queue (Final Video -> Instagram/TikTok APIs)
 export const socialUploadQueue = new Queue('social-upload', { connection });
 
+// --- V2 Pipeline Queues ---
+// 5. EditPlan Pipeline (FFprobe -> Groq EditPlan)
+export const editPlanQueue = new Queue('edit-plan', { connection });
+
+// 6. Render V2 Pipeline (FFmpeg executes EditPlan)
+export const renderV2Queue = new Queue('render-v2', { connection });
+
 export class QueueService {
   /**
    * Starts the extraction process. This is called directly after a successful video upload.
@@ -82,6 +89,21 @@ export class QueueService {
     return await renderQueue.add('render-video', { projectId, templateId, groqData }, {
       attempts: 2, 
       backoff: { type: 'exponential', delay: 20000 }, // Rendering is heavy, give it longer backoff
+    });
+  }
+
+  // --- V2 Pipeline Methods ---
+  static async addEditPlanJob(projectId: string, videoId: string, videoUrl: string, editPreferences: any) {
+    return await editPlanQueue.add('generate-edit-plan', { projectId, videoId, videoUrl, editPreferences }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+    });
+  }
+
+  static async addRenderV2Job(projectId: string, editPlan: any) {
+    return await renderV2Queue.add('render-v2-video', { projectId, editPlan }, {
+      attempts: 2,
+      backoff: { type: 'exponential', delay: 20000 },
     });
   }
 

@@ -26,6 +26,7 @@ export class UploadController {
           parsedContext = JSON.parse(context);
         } catch (e) {
           console.warn('Failed to parse context JSON', e);
+          parsedContext = { text: context };
         }
       }
 
@@ -75,7 +76,19 @@ export class UploadController {
 
       console.log('Video saved to database.');
 
-      // 4. Create a Job in BullMQ so a background worker starts extracting frames
+      const { pipelineVersion } = req.body;
+
+      // 4. If V2 or V3 pipeline, skip queue auto-start
+      if (pipelineVersion === 'v2' || pipelineVersion === 'v3') {
+        // Just return the video and project IDs, UI will call /start-edit later
+        res.status(200).json({
+          message: 'Video uploaded successfully. Ready for V2 Q&A.',
+          video: newVideo,
+        });
+        return;
+      }
+
+      // 5. Create a Job in BullMQ so a background worker starts extracting frames
       const job = await QueueService.addExtractionJob(
         projectId, 
         newVideo.id, 
@@ -94,7 +107,7 @@ export class UploadController {
 
       console.log(`Dispatched background job ${job.id}`);
 
-      // 5. Respond to the client immediately so they don't have to wait for analysis
+      // 6. Respond to the client immediately so they don't have to wait for analysis
       res.status(200).json({
         message: 'Video uploaded successfully and is now queuing for analysis.',
         video: newVideo,

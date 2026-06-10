@@ -18,32 +18,39 @@ model User {
 }
 
 model SocialAccount {
-  id           String    @id @default(uuid())
+  id           String           @id @default(uuid())
   userId       String
   platform     Platform
   accessToken  String
   refreshToken String?
   expiresAt    DateTime?
-  createdAt    DateTime  @default(now())
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId    String?
+  accountName  String?
+  accountImage String?
+  metadata     Json?
+  status       ConnectionStatus @default(CONNECTED)
+  createdAt    DateTime         @default(now())
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, platform])
 }
 
 model Project {
-  id                String       @id @default(uuid())
+  id                String            @id @default(uuid())
   title             String
   userId            String
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   renderedVideoUrl  String?
-  renderStatus      String       @default("PENDING")
+  renderStatus      String            @default("PENDING")
   renderCompletedAt DateTime?
   userContext       Json?
-
+  editPreferences   Json?
+  generatedCaption  String?
+  generatedHashtags String[]
   analysis          AiAnalysis?
-  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platformContents  PlatformContent[]
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   renderJobs        RenderJob[]
   socialPosts       SocialPost[]
   videos            Video[]
@@ -107,10 +114,40 @@ model SocialPost {
   @@index([scheduledFor, status])
 }
 
+model PlatformContent {
+  id              String     @id @default(uuid())
+  projectId       String
+  platform        Platform
+  caption         String?    @db.Text
+  hashtags        String[]
+  hook            String?
+  title           String?
+  description     String?    @db.Text
+  tags            String[]
+  isAiGenerated   Boolean    @default(true)
+  isEdited        Boolean    @default(false)
+  generationCount Int        @default(1)
+  postStatus      PostStatus @default(DRAFT)
+  errorMessage    String?
+  postUrl         String?
+  publishedAt     DateTime?
+  retryCount      Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  bullMqJobId     String?    @unique
+  scheduledFor    DateTime?
+  metadata        Json?
+  project         Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, platform])
+}
+
 enum Platform {
   INSTAGRAM
-  TIKTOK
+  FACEBOOK
   YOUTUBE
+  LINKEDIN
+  PINTEREST
 }
 
 enum VideoType {
@@ -128,7 +165,15 @@ enum JobStatus {
 
 enum PostStatus {
   DRAFT
-  SCHEDULED
+  READY
+  PUBLISHING
   PUBLISHED
   FAILED
+  SCHEDULED
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  EXPIRED
+  REVOKED
 }
