@@ -28,10 +28,28 @@ export const startRenderV2Worker = () => {
 
       logger.info(`[RenderV2Pipeline] Starting render for project: ${projectId}`);
       
+      let lastReportedProgress = 0;
+      let lastUpdateTime = 0;
+      let redisUpdateCount = 0;
+
+      const handleProgress = (percent: number) => {
+        const mapped = 70 + Math.floor(percent * 0.2); // Maps 0-100 to 70-90
+        const now = Date.now();
+        
+        if (mapped === lastReportedProgress) return;
+
+        if (mapped >= lastReportedProgress + 5 || now - lastUpdateTime > 1000) {
+          job.updateProgress(mapped).catch(() => {});
+          lastReportedProgress = mapped;
+          lastUpdateTime = now;
+          redisUpdateCount++;
+        }
+      };
+
       await TemplateEngine.renderEditPlan(
           video.url,
           outputPath,
-          (percent) => job.updateProgress(70 + Math.floor(percent * 0.2)), 
+          handleProgress, 
           editPlan
         );
 
@@ -76,6 +94,8 @@ export const startRenderV2Worker = () => {
       } catch (cleanupErr) {
         logger.warn(`[RenderV2Pipeline] Failed to clean up temp files for project ${projectId}`, cleanupErr);
       }
+
+      logger.info(`[RenderV2Pipeline] Render finished. Redis updates: ${redisUpdateCount}, Postgres updates: ${redisUpdateCount}`);
 
       return { finalUrl: finalVideoUrl };
 

@@ -8,7 +8,9 @@ const prisma = new PrismaClient();
 export interface VideoEditIntent {
   style: string;
   intensity: string;
-  overlayTexts: string[];
+  overlayTexts: any[]; // Supports both V1 string[] and V3 OverlayInput[]
+  showFooter?: boolean;
+  footerText?: string;
   focusArea: string;
   purpose: string;
   referenceVideo: string;
@@ -85,13 +87,27 @@ export function validateVideoEditIntent(raw: any): ValidationResult {
   }
   if (!intensity) intensity = 'AI Decide';
 
-  // Overlay texts – array of strings, sanitise
-  let overlayTexts: string[] = [];
+  // Overlay texts – array of objects (V3) or strings (V1/V2), sanitise
+  let overlayTexts: any[] = [];
   if (Array.isArray(raw?.overlayTexts)) {
     overlayTexts = raw.overlayTexts
-      .filter((t: any) => typeof t === 'string' && t.trim().length > 0)
-      .map((t: string) => t.trim().slice(0, 200)); // cap each at 200 chars
+      .filter((t: any) => {
+        if (typeof t === 'string') return t.trim().length > 0;
+        if (typeof t === 'object' && t !== null && typeof t.text === 'string') return t.text.trim().length > 0;
+        return false;
+      })
+      .map((t: any) => {
+        if (typeof t === 'string') return t.trim().slice(0, 200);
+        return {
+          ...t,
+          text: t.text.trim().slice(0, 200)
+        };
+      });
   }
+
+  // Footer Branding (V3)
+  const showFooter = typeof raw?.showFooter === 'boolean' ? raw.showFooter : true;
+  const footerText = typeof raw?.footerText === 'string' ? raw.footerText.trim() : '@ai.for.weddings\n9821640951';
 
   // Focus area – optional, defaults to "AI Decide"
   let focusArea = typeof raw?.focusArea === 'string' ? raw.focusArea.trim() : '';
@@ -126,6 +142,8 @@ export function validateVideoEditIntent(raw: any): ValidationResult {
     style,
     intensity,
     overlayTexts,
+    showFooter,
+    footerText,
     focusArea,
     purpose,
     referenceVideo,
@@ -145,6 +163,7 @@ export async function saveVideoEditIntent(
     style: intent.style,
     intensity: intent.intensity,
     overlayCount: intent.overlayTexts.length,
+    showFooter: intent.showFooter,
     focusArea: intent.focusArea,
     purpose: intent.purpose,
     hasReference: !!intent.referenceVideo,

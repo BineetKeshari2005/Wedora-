@@ -33,10 +33,29 @@ export const startRenderWorker = () => {
 
       // 2. Run the FFmpeg Rendering Template
       logger.info(`[RenderPipeline] Starting render for project: ${projectId} using template: ${templateId}`);
+      let lastReportedProgress = 0;
+      let lastUpdateTime = 0;
+      let redisUpdateCount = 0;
+
+      const handleProgress = (percent: number) => {
+        const mapped = 60 + Math.floor(percent * 0.3); // Maps 0-100 to 60-90
+        const now = Date.now();
+        
+        if (mapped === lastReportedProgress) return;
+
+        if (mapped >= lastReportedProgress + 5 || now - lastUpdateTime > 1000) {
+          job.updateProgress(mapped).catch(() => {});
+          lastReportedProgress = mapped;
+          lastUpdateTime = now;
+          redisUpdateCount++;
+        }
+      };
+
       await TemplateEngine.renderTemplate(
           video.url,
           outputPath,
-          (percent) => job.updateProgress(60 + Math.floor(percent * 0.3)), // Maps 0-100% to 60-90%
+          handleProgress,
+
           { templateId, groqData, aiAnalysis }
         );
 
@@ -89,6 +108,8 @@ export const startRenderWorker = () => {
       } catch (cleanupErr) {
         logger.warn(`[RenderPipeline] Failed to clean up temp files for project ${projectId}`, cleanupErr);
       }
+
+      logger.info(`[RenderPipeline] Render finished. Redis updates: ${redisUpdateCount}, Postgres updates: ${redisUpdateCount}`);
 
       return { finalUrl: finalVideoUrl };
 

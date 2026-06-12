@@ -16,11 +16,29 @@ export const startExtractionWorker = () => {
     // 1. Extract frames
     await prisma.project.update({ where: { id: projectId }, data: { renderStatus: 'EXTRACTING' } });
     logger.info(`[VideoExtraction] Starting extraction for project: ${projectId}`);
+    let lastReportedProgress = 0;
+    let lastUpdateTime = 0;
+    let redisUpdateCount = 0;
+
+    const handleProgress = (percent: number) => {
+      const mapped = Math.floor(percent * 0.3); // Maps 0-100 to 0-30
+      const now = Date.now();
+      
+      if (mapped === lastReportedProgress) return;
+
+      if (mapped >= lastReportedProgress + 5 || now - lastUpdateTime > 1000) {
+        job.updateProgress(mapped).catch(() => {});
+        lastReportedProgress = mapped;
+        lastUpdateTime = now;
+        redisUpdateCount++;
+      }
+    };
+
     const framesDir = await ExtractService.extractFrames(
       projectId,
       videoUrl,
       1, // 1 frame every 1 second for dense coverage
-      (percent) => job.updateProgress(Math.floor(percent * 0.3))
+      handleProgress
     );
     logger.info(`[VideoExtraction] Frames extracted to: ${framesDir}`);
 
@@ -80,6 +98,8 @@ export const startExtractionWorker = () => {
 
     // 5. Dispatch render job using the chosen template and passing groqData
     await QueueService.addRenderJob(projectId, scoredTemplateId, groqResult);
+
+    logger.info(`[VideoExtraction] Extraction finished. Redis updates: ${redisUpdateCount}, Postgres updates: ${redisUpdateCount}`);
 
     return { framesDir, analysisResult, groqResult };
   }, 2);

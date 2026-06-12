@@ -5,6 +5,7 @@ export const OverlayPlanSchema = z.object({
   startTime: z.number().min(0).default(0),
   endTime: z.number().min(0).default(0),
   position: z.enum(['top', 'center', 'bottom']).default('center'),
+  placement: z.enum(['video', 'header']).optional().default('video'),
 });
 
 export const RenderSettingsSchema = z.object({
@@ -20,7 +21,7 @@ export const TrimStrategySchema = z.object({
 });
 
 export const EditPlanSchema = z.object({
-  version: z.string().default('1.0'),
+  version: z.string().default('3.0'),
   editingStyle: z.string().default('standard'),
   editingIntensity: z.enum(['low', 'medium', 'high']).default('medium'),
   transitionStyle: z.enum(['none', 'fade', 'slide', 'zoom']).default('none'),
@@ -28,6 +29,11 @@ export const EditPlanSchema = z.object({
   aspectRatio: z.enum(['16:9', '9:16', '1:1', 'original']).default('original'),
   trimStrategy: TrimStrategySchema.optional(),
   overlays: z.array(OverlayPlanSchema).default([]),
+  
+  // V3 Header/Footer Feature
+  showFooter: z.boolean().optional(),
+  footerText: z.string().optional(),
+
   renderSettings: RenderSettingsSchema.default({
     resolution: '1080p',
     fps: 30,
